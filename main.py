@@ -27,15 +27,13 @@ def create_performance_dict(models_list, path_databases='datasets/bases_tratadas
             Dicionário com o desempenho e tempo que cada algoritmo obteve em cada Fold de validação.
         
     """
-    #import pdb;pdb.set_trace()
     PATH = path_databases
     bases = os.listdir(PATH)
     dict_of_attributes = Datasets.dict_of_attributes()
     dataset_performances = dict()
 
-    print("\nAvaliando desempenho dos algoritmos nas bases em \"{}\"".format(PATH))
+    print("\nCriando dicionário de desempenho para as bases em \"{}\"".format(PATH))
     for base in bases:
-        #import pdb;pdb.set_trace()
         print("Avaliando base {}...".format(base))
         df_ = pd.read_csv(PATH + base, index_col=[0])
         dataset_info = (base[:-4], df_, dict_of_attributes[base[:-4]][1])
@@ -47,7 +45,6 @@ def create_performance_dict(models_list, path_databases='datasets/bases_tratadas
             dataset_performances[base[:-4]][model_] = (clf.accuracies,clf.times)
     print("Avaliação concluída.")    
 
-    #import pdb;pdb.set_trace()
     if save:
         if not os.path.exists('metatools/models/'):
             os.makedirs('metatools/models/')
@@ -58,12 +55,10 @@ def create_performance_dict(models_list, path_databases='datasets/bases_tratadas
 
     return dataset_performances
 
-##parser = _build_parser()
-##args = parser.parse_args()
 if __name__ == "__main__":
-    ## Parâmetros ##
-    load_performance_dict = True
-    load_dataset = False
+    ## Parâmetros iniciais: para agilizar a coleta de dados ##
+    load_performance_dict = False
+    load_dataset = True
     save = True
     
     if not os.path.exists('results/pickle/'):
@@ -71,23 +66,20 @@ if __name__ == "__main__":
         
     models_list = Classifiers.classifiers_key().keys()    
 
-    # Criar dict performance?
-    if load_performance_dict:
-        performance_dict = pickle.load(open('metatools/models/performance_dict.p','rb'))
-    else:
-        performance_dict = create_performance_dict(models_list=models_list, save=True)
-
     ## Baixando bases de dados do UCL
     if load_dataset:
         download.run()
         print("Download concuído.")
 
-    ## GERANDO AS METAFEATURES ##
-    #print("\nCriando metafeatures.")
-    metafeatures.run()
-    #print("Meta-features criadas com sucesso.")
+    # gerando o dicionário de performances
+    if load_performance_dict:
+        performance_dict = pickle.load(open('metatools/models/performance_dict.p','rb'))
+    else:
+        performance_dict = create_performance_dict(models_list=models_list, save=True)
 
-    metalearning = RankingAlgorithm(performance_dict=performance_dict, classifiers_used=models_list)
+    ## Gerando metafeatures e instanciando a classe RankingAlgorithm ##
+    df_metafeatures = metafeatures.run()
+    metalearning = RankingAlgorithm(performance_dict=performance_dict, classifiers_used=models_list, metafeatures=df_metafeatures)
 
     for accd in [0.001, 0.01, 0.1]:
         resultado_final = dict()

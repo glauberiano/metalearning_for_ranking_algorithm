@@ -23,10 +23,9 @@ class RankingAlgorithm:
     
     """
 
-    def __init__(self, classifiers_used, performance_dict, is_ideal=False):
-        with open('metatools/models/metafeatures.p', 'rb') as fp:
-            metafeatures = pickle.load(fp)
-
+    def __init__(self, classifiers_used, performance_dict, metafeatures, is_ideal=False):
+        #with open('metatools/models/metafeatures.p', 'rb') as fp:
+        #    metafeatures = pickle.load(fp)
         self.df_metafeatures = metafeatures
         self.performace_dict = performance_dict
         self.is_ideal = is_ideal
@@ -75,7 +74,6 @@ class RankingAlgorithm:
 
         else:
             for base in datasets:
-                #for j, performance in enumerate(self.performace_dict[base][alg1][0]):
                 SR = (np.mean(self.performace_dict[base][alg1][0])) / (np.mean(self.performace_dict[base][alg2][0]))
                 denominador = 1 + AccD * np.log( (np.mean(self.performace_dict[base][alg1][1])) / (np.mean(self.performace_dict[base][alg2][1])) )
                 resultado  = SR / denominador
@@ -153,7 +151,7 @@ class RankingAlgorithm:
         return ARR_rank
 
     def ideal_ranking(self, base, AccD):
-        """ """
+        """ Gera o ranking ideal de uma `base`. """
         selected_bases = [k for k in self.performace_dict.keys() if k not in [base]]
         classifiers_used= self.classifiers_used
         matriz_ARR = np.zeros(shape=(len(classifiers_used),len(classifiers_used)))
@@ -249,9 +247,6 @@ class StatisticalTest:
             Position_alg_x : ('alg_z', ARR_z, desempenho medio alg_z)
         }
         """
-
-        #import pdb; pdb.set_trace()
-
         algorithm_pos_rr = dict()
         for item in recomended_rank.items():
             algorithm_pos_rr[item[1][0]] = item[0]
@@ -262,7 +257,6 @@ class StatisticalTest:
 
         algorithms_ = algorithm_pos_rr.keys()
 
-        #import pdb; pdb.set_trace()
         diff_ = list()
         for algorithm in algorithms_:
             diff_.append((algorithm_pos_rr[algorithm] - algorithm_pos_ri[algorithm])**2)
@@ -278,7 +272,6 @@ class StatisticalTest:
         for key, rank in rankings_set.items():
             rs_knn = np.mean([item[1]['spearman_coef'] for item in rank.items()])
             rs_baseline = np.mean([item[1]['spearman_coef'] for item in baseline['accd_0001'].items()])
-            #print(rs_knn, rs_baseline)
             count = dict(Counter([1 if item[1]['spearman_coef'] >= rs_baseline else 0 for item in rank.items()]))
             mean_average_correlation[key] = (rs_knn, count)
         return mean_average_correlation
