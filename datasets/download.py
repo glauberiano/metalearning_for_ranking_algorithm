@@ -38,3 +38,4 @@ def run():
                         ,names=dict_of_attributes[key][0])
 
         df.to_csv(name) 
+    print("Download concluído")

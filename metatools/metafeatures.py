@@ -90,12 +90,12 @@ def mean_variance(array):
     mean2 = np.mean(array[lim:-lim])
     return mean1 / mean2
 
-def run():
+def run(PATH = 'datasets/bases_tratadas/'):
+    print("Rodoou")
     if not os.path.exists('metatools/models/'):
         os.makedirs('metatools/models/')
 
     dict_of_attributes = get_dataset_attributes()
-    PATH = 'datasets/bases_tratadas/'
 
     df_metafeatures = pandas.DataFrame(columns=['base','n_examples','pro_symb_attrs','prop_attr_outliers','class_entropy'])
     bases = os.listdir(PATH)
@@ -110,3 +110,4 @@ def run():
 
     with open('metatools/models/metafeatures.p', 'wb') as fp:
         pickle.dump(df_metafeatures, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    #return df_metafeatures
