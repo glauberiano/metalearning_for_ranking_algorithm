@@ -6,6 +6,8 @@ def run():
     if not os.path.exists('datasets/bases_tratadas/'):
         os.makedirs('datasets/bases_tratadas/')
 
+    print("Baixando bases de dados do UCI")
+
     # dict_of_datasets[<nome da base> ::  str] = <endereço da base> :: str 
     dict_of_datasets = {
         'abalone' : 'https://archive.ics.uci.edu/ml/machine-learning-databases/abalone/abalone.data'

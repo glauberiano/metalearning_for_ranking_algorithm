@@ -63,13 +63,14 @@ def create_performance_dict(models_list, path_databases='datasets/bases_tratadas
 if __name__ == "__main__":
     ## Parâmetros ##
     load_performance_dict = True
+    load_dataset = False
     save = True
     
     if not os.path.exists('results/pickle/'):
         os.makedirs('results/pickle/')
         
-    models_list = Classifiers.classifiers_key().keys()
-    
+    models_list = Classifiers.classifiers_key().keys()    
+
     # Criar dict performance?
     if load_performance_dict:
         performance_dict = pickle.load(open('metatools/models/performance_dict.p','rb'))
@@ -77,8 +78,9 @@ if __name__ == "__main__":
         performance_dict = create_performance_dict(models_list=models_list, save=True)
 
     ## Baixando bases de dados do UCL
-    download.run()
-    #print("Download concluído.")
+    if load_dataset:
+        download.run()
+        print("Download concuído.")
 
     ## GERANDO AS METAFEATURES ##
     #print("\nCriando metafeatures.")
@@ -91,7 +93,7 @@ if __name__ == "__main__":
         resultado_final = dict()
         print("\nGerando resultados para AccD: {}".format(accd))
         for base in performance_dict.keys():
-            recomended_rank = metalearning.get_ranking(base=base, n_neighbors=2, AccD=accd)
+            recomended_rank = metalearning.ARR_ranking(base=base, n_neighbors=2, AccD=accd)
             ideal_rank = metalearning.ideal_ranking(base=base, AccD=accd)
             spearman_coef = StatisticalTest.spearman_test(recomended_rank, ideal_rank)
             print("{} : {}".format(base, spearman_coef))

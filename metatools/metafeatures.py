@@ -95,9 +95,7 @@ def run():
         os.makedirs('metatools/models/')
 
     dict_of_attributes = get_dataset_attributes()
-
     PATH = 'datasets/bases_tratadas/'
-    #c_metafeatures = metafeatures()
 
     df_metafeatures = pandas.DataFrame(columns=['base','n_examples','pro_symb_attrs','prop_attr_outliers','class_entropy'])
     bases = os.listdir(PATH)

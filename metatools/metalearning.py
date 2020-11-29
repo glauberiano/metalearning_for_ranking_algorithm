@@ -18,25 +18,25 @@ class RankingAlgorithm:
         
         - performance_dict: dict, not_null
             Dicionário com informações sobre desempenho e tempo de execução de uma lista de algoritmos aplicados a uma série de bases. Mais informações na classe `classificadores.Classifiers`.
-        - validation: bool, default=False
-            Se validation = True, o método `ARR` será calculado para cada Fold do cross-validation.
+        - is_ideal: bool, default=False
+            Se is_ideal = True, o método `ARR` será calculado para cada Fold do cross-is_ideal.
     
     """
 
-    def __init__(self, classifiers_used, performance_dict, validation=False):
+    def __init__(self, classifiers_used, performance_dict, is_ideal=False):
         with open('metatools/models/metafeatures.p', 'rb') as fp:
             metafeatures = pickle.load(fp)
 
         self.df_metafeatures = metafeatures
         self.performace_dict = performance_dict
-        self.validation = validation
+        self.is_ideal = is_ideal
         self.classifiers_used= classifiers_used
         self.general_algorithm_performance = self._general_performance(classifiers_used=classifiers_used,
                                                                       performance_dict=performance_dict)
 
 
     def _general_performance(self, classifiers_used, performance_dict):
-        """ Retorna a variavel `general_algorithm_performance` com a média geral de desempenho de cada algoritmo. """
+        """ Retorna a média geral de desempenho de cada algoritmo em `classifiers_used`. """
         general_algorithm_performance = dict()
         for algorithm in classifiers_used:
             means_ = list()
@@ -46,13 +46,27 @@ class RankingAlgorithm:
 
         return general_algorithm_performance
 
-    def ARR(self, select_datasets, alg1, alg2, AccD, validation):
-        """Retorna uma matriz com o ARR de cada algoritmo em relação aos demais"""
-        arr_values = list()
-        n_datasets = len(self.performace_dict.keys())
+    def ARR(self, datasets, alg1, alg2, AccD, is_ideal):
+        """Calcula ARR do `alg1` em relação ao `alg2` levando em consideração a importância relativa entre acurácia e tempo de execução `AccD`.
+        
+        Parâmetros:
+        -----------
+        - datasets: <str>
+        - alg1: <str>
+        - alg2: <str>
+        - AccD: double
+        - is_ideal:
+            Se o valor `True`, calcula ARR para o ranking ideal. `False` calcula para o ranking recomendado.
 
-        if validation:
-            for base in select_datasets:
+        Retorna:
+        --------
+        - arr_values: list()
+            Para cada base em `datasets` retorna o ARR entre os algoritmos `alg1` e `alg2`. Se `is_ideal=True`, arr_values utiliza o desempenho dos algoritmos em cada Fold N das bases. Se `is_ideal=False`, arr_values utiliza a média dos desempenhos de cada algoritmos.
+        """
+
+        arr_values = list()
+        if is_ideal:
+            for base in datasets:
                 for j, performance in enumerate(self.performace_dict[base][alg1][0]):
                     SR = (self.performace_dict[base][alg1][0][j]) / (self.performace_dict[base][alg2][0][j])
                     denominador = 1 + AccD * np.log( (self.performace_dict[base][alg1][1][j]) / (self.performace_dict[base][alg2][1][j]) )
@@ -60,7 +74,7 @@ class RankingAlgorithm:
                     arr_values.append(resultado)
 
         else:
-            for base in select_datasets:
+            for base in datasets:
                 #for j, performance in enumerate(self.performace_dict[base][alg1][0]):
                 SR = (np.mean(self.performace_dict[base][alg1][0])) / (np.mean(self.performace_dict[base][alg2][0]))
                 denominador = 1 + AccD * np.log( (np.mean(self.performace_dict[base][alg1][1])) / (np.mean(self.performace_dict[base][alg2][1])) )
@@ -69,36 +83,41 @@ class RankingAlgorithm:
 
         return arr_values 
 
-    def create_ARR(self, closest_datasets, classifiers_used, AccD, validation):
-        """
-        Parameters:
+    def get_ARR(self, closest_datasets, classifiers_used, AccD, is_ideal):
+        """ Gera o ARR de cada `classifiers_used` nas bases `closest_datasets`
+
+        Parâmetros:
         -----------
-            classifiers :: list()
-                lista de classificadores utilizandos
+        - closest_datasets :: list(<str>)
+            bases de dados utiliza no cálculo do ARR.
+        - classifiers_used :: list(<str)
+            lista de algoritmos de classificação candidatos.
+
+        Retorna:
+        --------
+        df_ARR :: pandas.DataFrame()
+            Tabela indexados pelos algoritmos em `classifiers_used`. df_ARR[i][j] contém o ARR do algoritmo i em relação ao algoritmo j.
         """
-        n_datasets = len(closest_datasets)
+        null_matriz = np.zeros(shape=(len(classifiers_used),len(classifiers_used)))
+        df_ARR = pd.DataFrame(data=null_matriz ,columns=classifiers_used, index=classifiers_used)
         algorithms_pairs = list(itertools.product(classifiers_used, classifiers_used))
-
-        matriz_ARR = np.zeros(shape=(len(classifiers_used),len(classifiers_used)))
-        df_ARR = pd.DataFrame(data=matriz_ARR ,columns=classifiers_used, index=classifiers_used)
-
         for par_algorithm in algorithms_pairs:
             if (par_algorithm[0] == par_algorithm[1]):
                 pass
             else:
-                arr_ = self.ARR(select_datasets=closest_datasets, 
+                arr_ = self.ARR(datasets=closest_datasets, 
                                 alg1=par_algorithm[0], 
                                 alg2=par_algorithm[1],
                                 AccD=AccD,
-                                validation=validation)
-                if validation:
+                                is_ideal=is_ideal)
+                if is_ideal:
                     df_ARR.loc[par_algorithm[0], par_algorithm[1]] = np.mean(arr_)
                 else:
-                    df_ARR.loc[par_algorithm[0], par_algorithm[1]] = np.prod(arr_)**(1/n_datasets)
+                    df_ARR.loc[par_algorithm[0], par_algorithm[1]] = np.prod(arr_)**(1/len(closest_datasets))
         return df_ARR
 
-    def get_ranking(self, base, n_neighbors, AccD):
-        """ Gera o ranking dos algoritmos para `base`. Para cada algoritmo, calcula-se a avaliação Adjusted Ratio Rates (ARR) ara isso, procura-se pelos `n_neighbors` vizinho mais próximos de `base`. A distância entre as bases é calculada a partir das meta-features de cada uma (mais informações no pacote METALEARNING). P
+    def ARR_ranking(self, base, n_neighbors, AccD):
+        """ Gera o ranking dos algoritmos recomendados para `base` utilizando o método de ranqueamento ARR para `n_neighbors` vizinhos mais próximos.
         
         Parâmetros:
         -----------
@@ -110,24 +129,8 @@ class RankingAlgorithm:
             Pode ser qualquer valor dentre [0.1, 0.01, 0.01]. Este parâmetro é fornecido pelo usuário e representa a quantidade de precisão que ele está disposto a negociar por uma aceleração ou desaceleração 10 vezes maior. Para exemplo, AccD = 10% significa que o usuário está disposto a trocar 10% de precisão por 10 vezes acelerar / desacelerar.
         Retorna:
         --------
-        - ARR_sorted :: dict()
-            ranking dos algoritmos candidatos. 
-            
-            Formato: 
-            { 'Abalone' : 
-                {
-                    'recommended_rank' : 
-                        {1 : ('alg_x', ARR_x, performance media alg_x),
-                         2 : ('alg_y', ARR_y, performance media alg_y),
-                         3 : ('alg_z', ARR_z, performance media alg_z)},
-                    'recommended_rank' : 
-                        {1 : ('alg_x', ARR_x, performance media alg_x),
-                         2 : ('alg_y', ARR_y, performance media alg_y),
-                         3 : ('alg_z', ARR_z, performance media alg_z)},
-                    'spearman_coef' : double,
-                }
-            }
-            
+        - ARR_rank :: dict()
+            ranking dos algoritmos candidatos.             
         """
         knn_ = KNN()
 
@@ -135,42 +138,37 @@ class RankingAlgorithm:
                                                   df_metafeatures=self.df_metafeatures, 
                                                   target=base)
 
-        df_ARR = self.create_ARR(closest_datasets=closest_datasets, 
-                                 classifiers_used=self.classifiers_used,
-                                 AccD=AccD,
-                                 validation=False)
+        df_ARR = self.get_ARR(closest_datasets=closest_datasets, 
+                            classifiers_used=self.classifiers_used,
+                            AccD=AccD,
+                            is_ideal=False)
 
-        ARR_dict = dict()
+        ARR_rank = dict()
         n_algorithms = 7
 
         for indice in df_ARR.index:
-            ARR_dict[indice] = ( np.sum(df_ARR.loc[indice,:]) / n_algorithms , self.general_algorithm_performance[indice] )
+            ARR_rank[indice] = ( np.sum(df_ARR.loc[indice,:]) / n_algorithms , self.general_algorithm_performance[indice] )
 
-        ARR_sorted = {k+1: v for k, v in enumerate(sorted(ARR_dict.items(), key=lambda item: item[1][0], reverse=True))}
-        return ARR_sorted
+        ARR_rank = {k+1: v for k, v in enumerate(sorted(ARR_rank.items(), key=lambda item: item[1][0], reverse=True))}
+        return ARR_rank
 
-    def ideal_ranking(self, base, AccD=0.1):
+    def ideal_ranking(self, base, AccD):
+        """ """
         selected_bases = [k for k in self.performace_dict.keys() if k not in [base]]
-        n_datasets = len(selected_bases)
         classifiers_used= self.classifiers_used
-
-        algorithms_pairs = list(itertools.product(classifiers_used, classifiers_used))
-
         matriz_ARR = np.zeros(shape=(len(classifiers_used),len(classifiers_used)))
         df_ARR = pd.DataFrame(data=matriz_ARR ,columns=classifiers_used, index=classifiers_used)
-        ARR_dict = dict()
+        ARR_rank = dict()
 
-        df_ARR = self.create_ARR(closest_datasets=selected_bases, 
+        df_ARR = self.get_ARR(closest_datasets=selected_bases, 
                                  classifiers_used=self.classifiers_used,
                                  AccD=AccD,
-                                 validation=True)
-        n_algorithms = 7
-
+                                 is_ideal=True)
         for indice in df_ARR.index:
-            ARR_dict[indice] = ( np.sum(df_ARR.loc[indice,:]) / n_algorithms , self.general_algorithm_performance[indice] )
+            ARR_rank[indice] = ( np.sum(df_ARR.loc[indice,:]) / len(classifiers_used) , self.general_algorithm_performance[indice] )
 
-        ARR_sorted = {k+1: v for k, v in enumerate(sorted(ARR_dict.items(), key=lambda item: item[1][0], reverse=True))}
-        return ARR_sorted
+        ARR_rank = {k+1: v for k, v in enumerate(sorted(ARR_rank.items(), key=lambda item: item[1][0], reverse=True))}
+        return ARR_rank
 
 class KNN:
     """ Implementação do algoritmo KNN modificado para gerar uma matriz de distâncias entre meta-features. """
@@ -280,7 +278,7 @@ class StatisticalTest:
         for key, rank in rankings_set.items():
             rs_knn = np.mean([item[1]['spearman_coef'] for item in rank.items()])
             rs_baseline = np.mean([item[1]['spearman_coef'] for item in baseline['accd_0001'].items()])
-            print(rs_knn, rs_baseline)
+            #print(rs_knn, rs_baseline)
             count = dict(Counter([1 if item[1]['spearman_coef'] >= rs_baseline else 0 for item in rank.items()]))
             mean_average_correlation[key] = (rs_knn, count)
         return mean_average_correlation
